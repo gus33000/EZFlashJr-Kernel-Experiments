@@ -1,15 +1,8 @@
 #include <gbdk/platform.h>
 #include <stdint.h>
-#include <stdbool.h>
-#include <string.h>
-#include <stdio.h>
-#include <gb/sgb.h>
 #include <stdio.h>
 #include "ezgb.h"
 
-#include "FileSystem/diskio.h"
-#include "FileSystem/pff.h"
-#include "wramcode.h"
 #include "filesectorbuffer.h"
 
 void main(void) NONBANKED

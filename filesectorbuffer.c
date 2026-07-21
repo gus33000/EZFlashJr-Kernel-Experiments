@@ -3,7 +3,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
-#include <gb/sgb.h>
 #include "ezgb.h"
 
 #include "FileSystem/diskio.h"
@@ -104,7 +103,7 @@ static CLUST get_fat(           /* 1:IO error, Else:Cluster status */
     return 1; /* An error occured at the disk I/O layer */
 }
 
-FRESULT test_read() BANKED
+FRESULT test_read(void) BANKED
 {
     // DRESULT dr;
     CLUST clst;
@@ -156,12 +155,12 @@ FRESULT test_read() BANKED
 
         if (prev_sect != 0xFFFFFFFF && curdatasect != prev_sect + 1)
         {
-            printf("START: %02X%02X\n",
+            /*printf("START: %02X%02X\n",
                    (uint16_t)(((prev_sect - prev_sect_count) & 0xFFFF0000) >> 16),
                    (uint16_t)((prev_sect - prev_sect_count) & 0xFFFF));
             printf("END: %02X%02X\n",
                    (uint16_t)((prev_sect_count & 0xFFFF0000) >> 16),
-                   (uint16_t)(prev_sect_count & 0xFFFF));
+                   (uint16_t)(prev_sect_count & 0xFFFF));*/
 
             ((uint32_t *)scratch_buffer)[offsetIntoBuffer++] = prev_sect - prev_sect_count;
             ((uint32_t *)scratch_buffer)[offsetIntoBuffer++] = prev_sect_count;
@@ -181,10 +180,10 @@ FRESULT test_read() BANKED
 
     uint32_t firstSectorToReadLast = prev_sect - prev_sect_count;
 
-    printf("START: %02X%02X\n",
+    /*printf("START: %02X%02X\n",
            (uint16_t)((firstSectorToReadLast & 0xFFFF0000) >> 16),
            (uint16_t)(firstSectorToReadLast & 0xFFFF));
-    printf("END: 0xFFFFFFFF\n");
+    printf("END: 0xFFFFFFFF\n");*/
 
     ((uint32_t *)scratch_buffer)[offsetIntoBuffer++] = prev_sect - prev_sect_count;
     ((uint32_t *)scratch_buffer)[offsetIntoBuffer++] = 0xFFFFFFFF;
@@ -193,7 +192,7 @@ FRESULT test_read() BANKED
     return FR_OK;
 }
 
-void prepare_rom_load_buffer()
+void prepare_rom_load_buffer(void) NONBANKED
 {
     // Always 0
     ((uint32_t *)scratch_buffer)[0] = 0;
@@ -207,14 +206,14 @@ void prepare_rom_load_buffer()
     ((uint32_t *)scratch_buffer)[0x7E] = 0x04;
 }
 
-uint16_t get_rom_bank_mask()
+uint16_t get_rom_bank_mask(void) NONBANKED
 {
     uint8_t rom_size_type = scratch_buffer[0x0148];
     uint16_t rom_bank_count = 2 * ((uint16_t)1 << rom_size_type);
     return rom_bank_count - 1;
 }
 
-uint8_t get_ram_bank_mask()
+uint8_t get_ram_bank_mask(void) NONBANKED
 {
     uint8_t rom_ram_type = scratch_buffer[0x0149];
     uint8_t ram_bank_mask = 0;
@@ -251,7 +250,7 @@ uint8_t get_ram_bank_mask()
     return ram_bank_mask;
 }
 
-uint8_t get_mbc_type()
+uint8_t get_mbc_type(void) NONBANKED
 {
     uint8_t rom_cart_type = scratch_buffer[0x0147];
     uint8_t mbc_type = 0;
@@ -333,7 +332,7 @@ void execute_gb_file_load(const char *path) NONBANKED
     // mount FS if not mounted yet
     if (!filesystem_inited)
     {
-        printf("Initializing FS!\n");
+        //printf("Initializing FS!\n");
         FRESULT result = pf_mount(&filesystem);
         if (filesystem_inited = (result != FR_OK))
         {
@@ -361,8 +360,10 @@ void execute_gb_file_load(const char *path) NONBANKED
     printf("ROM: %01X\n", rom_bank_mask);
     printf("CRC: %01X\n", rom_crc);
 
-    printf("Press [A] to begin ROM loading\n");
-    waitpad(J_A);
+    printf("Press [START] to begin ROM loading\n");
+    waitpad(J_START);
+
+    setup_trampolines();
 
     // Clear out/Initialize SRAM for the game
     if (ram_bank_mask != 0)

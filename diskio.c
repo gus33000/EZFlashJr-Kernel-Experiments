@@ -4,14 +4,13 @@
 
 #include <gbdk/platform.h>
 #include <string.h>
-#include <stdio.h>
 
 #include "FileSystem/diskio.h"
 #include "ezgb.h"
 
 uint32_t CachedSector;
 
-DSTATUS disk_initialize(void)
+DSTATUS disk_initialize(void) NONBANKED
 {
     CachedSector = 0xffffffff;
     return 0;
@@ -22,7 +21,7 @@ DRESULT disk_readp(
     uint32_t sector, /* Sector number (LBA) */
     uint16_t offset, /* Byte offset to read from (0..511) */
     uint16_t count   /* Number of bytes to read (ofs + cnt mus be <= 512) */
-)
+) NONBANKED
 {
     DRESULT res = RES_ERROR;
 
@@ -58,7 +57,7 @@ DRESULT disk_readp(
 DRESULT disk_writep(
     const uint8_t *buff, /* Pointer to the bytes to be written (NULL:Initiate/Finalize sector write) */
     uint32_t sc          /* Number of bytes to send, Sector number (LBA) or zero */
-)
+) NONBANKED
 {
     static uint16_t wc; /* Sector write counter */
 

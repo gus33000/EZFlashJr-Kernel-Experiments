@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <gb/sgb.h>
 #include <stdio.h>
-#include "ezflashjr.h"
+#include "ezgb.h"
 
 #pragma bank 4
 
@@ -15,18 +15,6 @@
 // those are function pointer variables, we can initialize them right here
 typedef void (*inc_t)(void);
 
-inline void ezjr_unlock(void)
-{
-    EZJR_REG_UNLOCK1 = EZJR_UNLOCK1;
-    EZJR_REG_UNLOCK2 = EZJR_UNLOCK2;
-    EZJR_REG_UNLOCK3 = EZJR_UNLOCK3;
-}
-
-inline void ezjr_lock(void)
-{
-    EZJR_REG_LOCK = EZJR_LOCK;
-}
-
 void ram_code(void) NONBANKED {
     inc_t func = (inc_t)0xD100;
 
@@ -35,9 +23,7 @@ void ram_code(void) NONBANKED {
     // Which would be the new ROM being loaded by the FPGA..
     disable_interrupts();
 
-    ezjr_unlock();
-    EZJR_REG_ROM_LOAD_SRAM_MAP = 0x3;
-    ezjr_lock();
+    EZGB_COMMAND_PACKET(EZJR_REG_ROM_LOAD_SRAM_MAP = 0x3);
 
     func();
 }
@@ -72,18 +58,9 @@ void ram_code3(void) NONBANKED {
 void ram_code3_end(void) NONBANKED {} 
 
 void ram_code4(void) NONBANKED {
-    ezjr_unlock();
-    EZJR_REG_ROM_LOAD_SRAM_MAP = 0x0;
-    ezjr_lock();
-
-    ezjr_unlock();
-    EZJR_REG_31 = 0x0;
-    EZJR_REG_32 = 0x0;
-    ezjr_lock();
-
-    ezjr_unlock();
-    EZJR_REG_RESET = 0x80;
-    ezjr_lock();
+    EZGB_COMMAND_PACKET(EZJR_REG_ROM_LOAD_SRAM_MAP = 0x0);
+    EZGB_COMMAND_PACKET(EZJR_REG_31 = 0x0;EZJR_REG_32 = 0x0);
+    EZGB_COMMAND_PACKET(EZJR_REG_RESET = 0x80);
 }
 
 // dummy function, needed to calculate ram_code() size, must be after it

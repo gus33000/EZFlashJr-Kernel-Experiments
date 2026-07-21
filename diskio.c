@@ -7,22 +7,13 @@
 #include <stdio.h>
 
 #include "FileSystem/diskio.h"
-#include "ezflashjr.h"
+#include "ezgb.h"
 
-inline void ezjr_unlock(void)
-{
-    EZJR_REG_UNLOCK1 = EZJR_UNLOCK1;
-    EZJR_REG_UNLOCK2 = EZJR_UNLOCK2;
-    EZJR_REG_UNLOCK3 = EZJR_UNLOCK3;
-}
-
-inline void ezjr_lock(void)
-{
-    EZJR_REG_LOCK = EZJR_LOCK;
-}
+uint32_t CachedSector;
 
 DSTATUS disk_initialize(void)
 {
+    CachedSector = 0xffffffff;
     return 0;
 }
 
@@ -35,51 +26,30 @@ DRESULT disk_readp(
 {
     DRESULT res = RES_ERROR;
 
-    ezjr_unlock();
-    EZJR_REG_TF_SRAM_MAP = EZJR_TF_SRAM_MAP_DATA;
-    ezjr_lock();
+    if (CachedSector != sector)
+    {
+        EZGB_COMMAND_PACKET(EZJR_REG_TF_SRAM_MAP = EZJR_TF_SRAM_MAP_DATA);
+        EZGB_COMMAND_PACKET(EZJR_REG_TF_SECTOR = sector; EZJR_REG_TF_COMMAND = EZJR_TF_COMMAND_READ(1));
+        EZGB_COMMAND_PACKET(EZJR_REG_TF_SRAM_MAP = EZJR_TF_SRAM_MAP_STATUS);
 
-    ezjr_unlock();
-    EZJR_REG_TF_SECTOR = sector;
-    EZJR_REG_TF_COMMAND = EZJR_TF_COMMAND_READ(1);
-    ezjr_lock();
+        // Running under emu which doesnt implement this correctly...
+        while ((_SRAM[0] & EZJR_TF_STATUS_BUSY))
+            ;
 
-    ezjr_unlock();
-    EZJR_REG_TF_SRAM_MAP = EZJR_TF_SRAM_MAP_STATUS;
-    ezjr_lock();
+        CachedSector = sector;
+    }
 
-    // Running under emu which doesnt implement this correctly...
-    while ((_SRAM[0] & EZJR_TF_STATUS_BUSY))
-        ;
-
-    ezjr_unlock();
-    EZJR_REG_TF_SRAM_MAP = EZJR_TF_SRAM_MAP_DATA;
+    EZGB_COMMAND_PACKET(EZJR_REG_TF_SRAM_MAP = EZJR_TF_SRAM_MAP_DATA);
     memcpy(buff, _SRAM + offset, count);
-    ezjr_lock();
-
-    ezjr_unlock();
-    EZJR_REG_TF_SRAM_MAP = EZJR_TF_SRAM_MAP_NONE;
-    ezjr_lock();
+    EZGB_COMMAND_PACKET(EZJR_REG_TF_SRAM_MAP = EZJR_TF_SRAM_MAP_NONE);
 
     EZJR_REG_SRAM_PAGE_SELECT = 0x11;
-
-    ezjr_unlock();
-    EZJR_REG_SRAM_MAP = EZJR_SRAM_MAP_SRAM;
-    ezjr_lock();
+    EZGB_COMMAND_PACKET(EZJR_REG_SRAM_MAP = EZJR_SRAM_MAP_SRAM);
 
     EZJR_REG_SRAM_PAGE_SELECT = 0;
-
-    ezjr_unlock();
-    EZJR_REG_SRAM_MAP = EZJR_SRAM_MAP_NONE;
-    ezjr_lock();
-
-    ezjr_unlock();
-    EZJR_REG_SRAM_MAP = EZJR_SRAM_MAP_NONE;
-    ezjr_lock();
-
-    ezjr_unlock();
-    EZJR_REG_SRAM_MAP = EZJR_SRAM_MAP_NONE;
-    ezjr_lock();
+    EZGB_COMMAND_PACKET(EZJR_REG_SRAM_MAP = EZJR_SRAM_MAP_NONE);
+    EZGB_COMMAND_PACKET(EZJR_REG_SRAM_MAP = EZJR_SRAM_MAP_NONE);
+    EZGB_COMMAND_PACKET(EZJR_REG_SRAM_MAP = EZJR_SRAM_MAP_NONE);
 
     return RES_OK;
 }
@@ -94,6 +64,8 @@ DRESULT disk_writep(
 
     ezjr_unlock();
     EZJR_REG_SRAM_MAP = EZJR_SRAM_MAP_NONE;
+
+    CachedSector = 0xffffffff;
 
     if (buff)
     { /* Send data bytes */

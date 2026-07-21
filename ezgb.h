@@ -15,9 +15,9 @@ inline void ezjr_lock(void)
     EZJR_REG_LOCK = EZJR_LOCK;
 }
 
-#define EZGB_COMMAND_PACKET(x)  \
-    ezjr_unlock();              \
-    x;                          \
+#define EZGB_COMMAND_PACKET(x) \
+    ezjr_unlock();             \
+    x;                         \
     ezjr_lock()
 
 #endif /* _EZGB_H_DEFINED */

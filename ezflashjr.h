@@ -17,7 +17,7 @@ static volatile uint8_t AT(0x7FF0) EZJR_REG_LOCK;
 //
 // Writting to this register will configure the SRAM area as different things. Use the $7FBx registers to configure which SD Sector to read.
 // Observed possible values:
-// 
+//
 // $00 Unmap the SD Card from SRAM area
 // $01 Map SD Card sector data to SRAM, data will be available at $A000+, up to 4 sectors $800 bytes are available, and wraps after that.
 // $03 Map SD Card read status to SRAM, status is available any SRAM area byte, $01 indicates read is done, $E1 indicates busy. (usage seems to be to wait till reading is done)
@@ -62,39 +62,39 @@ static volatile uint8_t AT(0xA00E) EZJR_RTC_YEAR;
 static volatile uint8_t AT(0xA000) EZJR_REG_SRAM_PAGE_SELECT;
 
 // Constants
-#define EZJR_UNLOCK1             0xE1
-#define EZJR_UNLOCK2             0xE2
-#define EZJR_UNLOCK3             0xE3
+#define EZJR_UNLOCK1 0xE1
+#define EZJR_UNLOCK2 0xE2
+#define EZJR_UNLOCK3 0xE3
 
-#define EZJR_TF_SRAM_MAP_NONE    0x00
-#define EZJR_TF_SRAM_MAP_DATA    0x01
-#define EZJR_TF_SRAM_MAP_STATUS  0x03
+#define EZJR_TF_SRAM_MAP_NONE 0x00
+#define EZJR_TF_SRAM_MAP_DATA 0x01
+#define EZJR_TF_SRAM_MAP_STATUS 0x03
 
-#define EZJR_TF_STATUS_BUSY      0xE0
+#define EZJR_TF_STATUS_BUSY 0xE0
 
-#define EZJR_ROM_MBC_NONE        0x00
-#define EZJR_ROM_MBC_MBC1        0x01
-#define EZJR_ROM_MBC_MBC2        0x02
-#define EZJR_ROM_MBC_MBC3        0x03
-#define EZJR_ROM_MBC_MBC5        0x04
-#define EZJR_ROM_MBC_MBC1M       0x05
-#define EZJR_ROM_MBC_FALLBACK    0x06
-#define EZJR_ROM_MBC_FLAG_RTC    0x80
-#define EZJR_ROM_MBC_MBC3_RTC    0x83
+#define EZJR_ROM_MBC_NONE 0x00
+#define EZJR_ROM_MBC_MBC1 0x01
+#define EZJR_ROM_MBC_MBC2 0x02
+#define EZJR_ROM_MBC_MBC3 0x03
+#define EZJR_ROM_MBC_MBC5 0x04
+#define EZJR_ROM_MBC_MBC1M 0x05
+#define EZJR_ROM_MBC_FALLBACK 0x06
+#define EZJR_ROM_MBC_FLAG_RTC 0x80
+#define EZJR_ROM_MBC_MBC3_RTC 0x83
 
-#define EZJR_SRAM_MAP_NONE       0x00
-#define EZJR_SRAM_MAP_SRAM       0x03
+#define EZJR_SRAM_MAP_NONE 0x00
+#define EZJR_SRAM_MAP_SRAM 0x03
 #define EZJR_SRAM_MAP_FW_VERSION 0x04
-#define EZJR_SRAM_MAP_FW_UPDATE  0x05
-#define EZJR_SRAM_MAP_RTC        0x06
+#define EZJR_SRAM_MAP_FW_UPDATE 0x05
+#define EZJR_SRAM_MAP_RTC 0x06
 
-#define EZJR_TF_COMMAND_READ(n)  (n)
+#define EZJR_TF_COMMAND_READ(n) (n)
 #define EZJR_TF_COMMAND_WRITE(n) (0x80 | (n))
 
-#define EZJR_FW_SRAM_MAP_NONE    0x00
-#define EZJR_FW_SRAM_MAP_STATUS  0x01
+#define EZJR_FW_SRAM_MAP_NONE 0x00
+#define EZJR_FW_SRAM_MAP_STATUS 0x01
 
-#define EZJR_RESET               0x80
-#define EZJR_LOCK                0xE4
+#define EZJR_RESET 0x80
+#define EZJR_LOCK 0xE4
 
 #endif /* _EZFLASHJR_H_DEFINED */

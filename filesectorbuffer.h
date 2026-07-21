@@ -3,4 +3,4 @@
 
 void execute_gb_file_load(const char *path);
 
-#endif  /* _FILESECTORBUFFER_DEFINED */
+#endif /* _FILESECTORBUFFER_DEFINED */

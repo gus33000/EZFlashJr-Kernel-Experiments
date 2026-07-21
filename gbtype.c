@@ -33,9 +33,16 @@ void main(void) NONBANKED
     EZGB_COMMAND_PACKET(EZJR_REG_SRAM_MAP = EZJR_SRAM_MAP_NONE);
 
     printf("Press [A] to start ROM loading\n");
-    waitpad(J_A);
+    uint8_t i = waitpad(J_A | J_B);
 
-    execute_gb_file_load("WHICH/WHICH_~1.GBC");
+    if (i == J_A)
+    {
+        execute_gb_file_load("WHICH/WHICH_~1.GBC");
+    }
+    else
+    {
+        execute_gb_file_load("Y.GBC");
+    }
 
     // should never end here
     while (1)

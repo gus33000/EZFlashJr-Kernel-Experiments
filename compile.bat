@@ -1,2 +1,2 @@
 REM Automatically generated from Makefile
-C:\Users\Gus\Downloads\gbdk-win64\gbdk\bin\lcc -Wl-yt0x01 -Wm-yn"EZGB" -Wm-yl00 -Wl-j -Wl-w -autobank -Wb-ext=.rel -o gbtype.gb filesectorbuffer.c wramcode.c buffers.s FileSystem\pff.c diskio.c gbtype.c
+C:\Users\Gus\Downloads\gbdk-win64\gbdk\bin\lcc -Wl-yt0x01 -Wm-yn"EZGB" -Wm-yl00 -Wl-j -Wl-w -autobank -Wb-ext=.rel -o gbtype.gb filesectorbuffer.c wramcode.c FileSystem\pff.c diskio.c gbtype.c

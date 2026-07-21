@@ -12,7 +12,7 @@
 
 bool filesystem_inited = false;
 FATFS filesystem;
-uint32_t rom_header[0x200 / 4] = {0};
+uint8_t scratch_buffer[0x200] = {0};
 
 #define ABORT(err)           \
     {                        \
@@ -104,30 +104,29 @@ static CLUST get_fat(           /* 1:IO error, Else:Cluster status */
     return 1; /* An error occured at the disk I/O layer */
 }
 
-FRESULT test_read(
-    // void* buff,     /* Pointer to the read buffer (NULL:Forward data to the stream)*/
-    uint16_t btr //,       /* Number of bytes to read */
-    // uint16_t* br        /* Pointer to number of bytes read */
-    ) BANKED
+FRESULT test_read() BANKED
 {
     // DRESULT dr;
     CLUST clst;
     uint32_t sect, remain;
     uint16_t rcnt;
-    uint8_t cs; //, *rbuff = buff;
+    uint8_t cs;
 
     uint32_t prev_sect = 0xFFFFFFFF;
     uint32_t prev_sect_count = 0x0;
     uint32_t offsetIntoBuffer = 1;
 
+    uint32_t curdatasect = 0;
+    CLUST curr_clust = 0;
+
     if (!(filesystem.flag & FA_OPENED))
         return FR_NOT_OPENED; /* Check if opened */
 
     remain = filesystem.fsize - filesystem.fptr;
-    if (btr > remain)
-        btr = (uint16_t)remain; /* Truncate btr by remaining bytes */
+    curdatasect = filesystem.dsect;
+    curr_clust = filesystem.curr_clust;
 
-    while (btr)
+    while (remain)
     { /* Repeat until all data transferred */
         if ((filesystem.fptr % 512) == 0)
         {                                                                   /* On the sector boundary? */
@@ -140,26 +139,33 @@ FRESULT test_read(
                 }
                 else
                 {
-                    clst = get_fat(filesystem.curr_clust);
+                    clst = get_fat(curr_clust);
                 }
                 if (clst <= 1)
                     ABORT(FR_DISK_ERR);
-                filesystem.curr_clust = clst; /* Update current cluster */
+                curr_clust = clst; /* Update current cluster */
             }
-            sect = clust2sect(filesystem.curr_clust); /* Get current sector */
+            sect = clust2sect(curr_clust); /* Get current sector */
             if (!sect)
                 ABORT(FR_DISK_ERR);
-            filesystem.dsect = sect + cs;
+            curdatasect = sect + cs;
         }
         rcnt = 512 - (uint16_t)filesystem.fptr % 512; /* Get partial sector data from sector buffer */
-        if (rcnt > btr)
-            rcnt = btr;
+        if (rcnt > remain)
+            rcnt = remain;
 
-        if (prev_sect != 0xFFFFFFFF && filesystem.dsect != prev_sect + 1)
+        if (prev_sect != 0xFFFFFFFF && curdatasect != prev_sect + 1)
         {
-            printf("Writing %04X\n", prev_sect - prev_sect_count);
-            rom_header[offsetIntoBuffer++] = prev_sect - prev_sect_count;
-            rom_header[offsetIntoBuffer++] = prev_sect_count;
+            printf("START: %02X%02X\n",
+                   (uint16_t)(((prev_sect - prev_sect_count) & 0xFFFF0000) >> 16),
+                   (uint16_t)((prev_sect - prev_sect_count) & 0xFFFF));
+            printf("END: %02X%02X\n",
+                   (uint16_t)((prev_sect_count & 0xFFFF0000) >> 16),
+                   (uint16_t)(prev_sect_count & 0xFFFF));
+
+            ((uint32_t *)scratch_buffer)[offsetIntoBuffer++] = prev_sect - prev_sect_count;
+            ((uint32_t *)scratch_buffer)[offsetIntoBuffer++] = prev_sect_count;
+
             prev_sect_count = 0;
         }
         else
@@ -167,18 +173,159 @@ FRESULT test_read(
             prev_sect_count++;
         }
 
-        prev_sect = filesystem.dsect;
+        prev_sect = curdatasect;
 
         filesystem.fptr += rcnt; /* Advances file read pointer */
-        btr -= rcnt;
+        remain -= rcnt;
     }
 
-    printf("Writing %04X\n", prev_sect - prev_sect_count);
-    rom_header[offsetIntoBuffer++] = prev_sect - prev_sect_count;
-    rom_header[offsetIntoBuffer++] = 0xFFFFFFFF;
+    uint32_t firstSectorToReadLast = prev_sect - prev_sect_count;
+
+    printf("START: %02X%02X\n",
+           (uint16_t)((firstSectorToReadLast & 0xFFFF0000) >> 16),
+           (uint16_t)(firstSectorToReadLast & 0xFFFF));
+    printf("END: 0xFFFFFFFF\n");
+
+    ((uint32_t *)scratch_buffer)[offsetIntoBuffer++] = prev_sect - prev_sect_count;
+    ((uint32_t *)scratch_buffer)[offsetIntoBuffer++] = 0xFFFFFFFF;
     prev_sect_count = 0;
 
     return FR_OK;
+}
+
+void prepare_rom_load_buffer()
+{
+    // Always 0
+    ((uint32_t *)scratch_buffer)[0] = 0;
+
+    test_read();
+
+    // Size of the to be loaded ROM in bytes.
+    ((uint32_t *)scratch_buffer)[0x7C] = filesystem.fsize;
+
+    ((uint32_t *)scratch_buffer)[0x7D] = 0x01;
+    ((uint32_t *)scratch_buffer)[0x7E] = 0x04;
+}
+
+uint16_t get_rom_bank_mask()
+{
+    uint8_t rom_size_type = scratch_buffer[0x0148];
+    uint16_t rom_bank_count = 2 * ((uint16_t)1 << rom_size_type);
+    return rom_bank_count - 1;
+}
+
+uint8_t get_ram_bank_mask()
+{
+    uint8_t rom_ram_type = scratch_buffer[0x0149];
+    uint8_t ram_bank_mask = 0;
+
+    switch (rom_ram_type)
+    {
+    case 2:
+    {
+        ram_bank_mask = 1;
+        break;
+    }
+    case 3:
+    {
+        // ram_bank_mask = 4;
+        ram_bank_mask = 3; // (???)
+        break;
+    }
+    case 4:
+    {
+        ram_bank_mask = 16;
+        break;
+    }
+    case 5:
+    {
+        ram_bank_mask = 8;
+        break;
+    }
+    default:
+    {
+        ram_bank_mask = 0;
+    }
+    }
+
+    return ram_bank_mask;
+}
+
+uint8_t get_mbc_type()
+{
+    uint8_t rom_cart_type = scratch_buffer[0x0147];
+    uint8_t mbc_type = 0;
+    uint8_t nintendo_copyright_header[0x30] = {0};
+
+    switch (rom_cart_type)
+    {
+    case 0:
+    case 8:
+    case 9:
+    {
+        mbc_type = EZJR_ROM_MBC_NONE;
+        break;
+    }
+    case 1:
+    case 2:
+    case 3:
+    {
+        mbc_type = EZJR_ROM_MBC_MBC1;
+
+        if (filesystem.fsize >= 0x44000)
+        {
+            memcpy(nintendo_copyright_header, scratch_buffer + 0x104, 0x30);
+
+            pf_lseek(0x40000);
+            uint16_t readbytes = 0;
+            pf_read(scratch_buffer, 0x200, &readbytes);
+
+            if (memcmp(nintendo_copyright_header, scratch_buffer + 0x104, 0x30) == 0)
+            {
+                // Guess this is a MBC1m cart because of the duplicated Nintendo Copyright Header
+                mbc_type = EZJR_ROM_MBC_MBC1M;
+            }
+        }
+
+        break;
+    }
+    case 5:
+    case 6:
+    {
+        mbc_type = EZJR_ROM_MBC_MBC2;
+        break;
+    }
+    case 0xF:
+    case 0x10:
+    {
+        mbc_type = EZJR_ROM_MBC_MBC3_RTC;
+        break;
+    }
+    case 0x11:
+    case 0x12:
+    case 0x13:
+    case 0xFC:
+    {
+        mbc_type = EZJR_ROM_MBC_MBC3;
+        break;
+    }
+    case 0x19:
+    case 0x1A:
+    case 0x1B:
+    case 0x1C:
+    case 0x1D:
+    case 0x1E:
+    {
+        mbc_type = EZJR_ROM_MBC_MBC5;
+        break;
+    }
+    default:
+    {
+        mbc_type = EZJR_ROM_MBC_FALLBACK;
+    }
+    }
+
+    return mbc_type;
 }
 
 void execute_gb_file_load(const char *path) NONBANKED
@@ -198,29 +345,66 @@ void execute_gb_file_load(const char *path) NONBANKED
     FRESULT res = pf_open(path);
 
     uint16_t readbytes = 0;
-    pf_read(rom_header, 0x200, &readbytes);
+    pf_read(scratch_buffer, 0x200, &readbytes);
 
-    // Always 0
-    rom_header[0] = 0;
+    uint16_t rom_bank_mask = get_rom_bank_mask();
+    uint8_t ram_bank_mask = get_ram_bank_mask();
+    uint8_t rom_crc = scratch_buffer[0x014D];
+    uint8_t mbc_type = get_mbc_type();
 
-    test_read(filesystem.fsize);
+    printf("Size: %02X%02X\n",
+           (uint16_t)((filesystem.fsize & 0xFFFF0000) >> 16),
+           (uint16_t)(filesystem.fsize & 0xFFFF));
 
-    // Size of the to be loaded ROM in bytes.
-    rom_header[0x7C] = filesystem.fsize; // 0x8000;
-    printf("Size: %02X\n", filesystem.fsize);
+    printf("MBC: %01X\n", mbc_type);
+    printf("RAM: %01X\n", ram_bank_mask);
+    printf("ROM: %01X\n", rom_bank_mask);
+    printf("CRC: %01X\n", rom_crc);
 
-    rom_header[0x7D] = 0x01;
-    rom_header[0x7E] = 0x04;
+    printf("Press [A] to begin ROM loading\n");
+    waitpad(J_A);
+
+    // Clear out/Initialize SRAM for the game
+    if (ram_bank_mask != 0)
+    {
+        // Clear with all FFs
+        memset(scratch_buffer, 0xFF, 0x200);
+
+        for (int k = 0; k < ram_bank_mask; k++)
+        {
+            EZJR_REG_SRAM_PAGE_SELECT = k;
+
+            for (int i = 0; i < 0x2000; i += 0x200)
+            {
+                EZGB_COMMAND_PACKET(EZJR_REG_SRAM_MAP = EZJR_SRAM_MAP_SRAM);
+
+                memcpy(_SRAM + i, scratch_buffer, 0x200);
+
+                EZGB_COMMAND_PACKET(EZJR_REG_SRAM_MAP = EZJR_SRAM_MAP_NONE);
+            }
+        }
+
+        // Reset SRAM Page
+        if (ram_bank_mask != 1)
+        {
+            EZJR_REG_SRAM_PAGE_SELECT = 0;
+        }
+    }
+
+    // Construct rom load buffer
+    prepare_rom_load_buffer();
 
     EZGB_COMMAND_PACKET(EZJR_REG_SRAM_MAP = 0x2);
-    EZGB_COMMAND_PACKET(EZJR_REG_ROM_MBC = 0);
-    EZGB_COMMAND_PACKET(EZJR_REG_D4 = 0);
-    EZGB_COMMAND_PACKET(EZJR_REG_SRAM_BANK_MASK = 0);
-    EZGB_COMMAND_PACKET(EZJR_REG_ROM_BANK_MASK = 0x003);
-    EZGB_COMMAND_PACKET(EZJR_REG_ROM_CRC = 0x3D);
-    EZGB_COMMAND_PACKET(EZJR_REG_ROM_LOAD_SRAM_MAP = 0x1);
 
-    memcpy(_SRAM, rom_header, 0x200);
+    EZGB_COMMAND_PACKET(EZJR_REG_ROM_MBC = mbc_type);
+    EZGB_COMMAND_PACKET(EZJR_REG_D4 = 0);
+    EZGB_COMMAND_PACKET(EZJR_REG_SRAM_BANK_MASK = ram_bank_mask);
+    // EZGB_COMMAND_PACKET(EZJR_REG_SRAM_BANK_MASK = 0);
+    EZGB_COMMAND_PACKET(EZJR_REG_ROM_BANK_MASK = rom_bank_mask);
+    EZGB_COMMAND_PACKET(EZJR_REG_ROM_CRC = rom_crc);
+
+    EZGB_COMMAND_PACKET(EZJR_REG_ROM_LOAD_SRAM_MAP = 0x1);
+    memcpy(_SRAM, scratch_buffer, 0x200);
 
     // Jump to work ram
     call_from_wram();

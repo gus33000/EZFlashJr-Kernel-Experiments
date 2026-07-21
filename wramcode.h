@@ -3,4 +3,4 @@
 
 void call_from_wram(void);
 
-#endif  /* _WRAMCODE_DEFINED */
+#endif /* _WRAMCODE_DEFINED */

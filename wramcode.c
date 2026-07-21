@@ -30,9 +30,11 @@ inline void ezjr_lock(void)
 void ram_code(void) NONBANKED {
     inc_t func = (inc_t)0xD100;
 
+    // Disable interrupts now so we dont get accidentally thrown
+    // into the location the interrupt vector points to
+    // Which would be the new ROM being loaded by the FPGA..
     disable_interrupts();
 
-    // todo: maybe this is not okay and calls into an external func?
     ezjr_unlock();
     EZJR_REG_ROM_LOAD_SRAM_MAP = 0x3;
     ezjr_lock();

@@ -7,8 +7,8 @@
 #include <stdio.h>
 #include "ezflashjr.h"
 
-#include "diskio.h"
-#include "pff.h"
+#include "FileSystem/diskio.h"
+#include "FileSystem/pff.h"
 #include "wramcode.h"
 
 // In the Makefile the "-Wm-ys" flag is added to LCC when compiling

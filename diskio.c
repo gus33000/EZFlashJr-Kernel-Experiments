@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "diskio.h"
+#include "FileSystem/diskio.h"
 #include "ezflashjr.h"
 
 inline void ezjr_unlock(void)
